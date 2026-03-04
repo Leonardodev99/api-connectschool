@@ -63,6 +63,14 @@ export default class Student extends Model {
             }
           }
         },
+        class_id: {
+          type: Sequelize.INTEGER,
+          allowNull: true,
+          references: {
+            model: 'classes',
+            key: 'id'
+          }
+        },
 
         ativo: {
           type: Sequelize.BOOLEAN,
@@ -91,5 +99,11 @@ export default class Student extends Model {
   static associate(models) {
     // Associação 1:1 com User
     this.belongsTo(models.User, { foreignKey: 'user_id', as: 'user' });
+    this.belongsToMany(models.Guardian, {
+      through: 'student_guardians',
+      foreignKey: 'student_id',
+      otherKey: 'guardian_id',
+      as: 'guardians'
+    });
   }
 }

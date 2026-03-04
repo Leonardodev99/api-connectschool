@@ -15,6 +15,10 @@ import taskRoutes from './src/routes/taskRoutes.js';
 import submissionsRoutes from './src/routes/submissionsRoutes.js';
 import gradeRoutes from './src/routes/gradeRoutes.js';
 import messageRoutes from './src/routes/messageRoutes.js';
+import guardianRoutes from './src/routes/guardianRoutes.js';
+import classRoutes from './src/routes/classRoutes.js';
+import scheduleRoutes from './src/routes/scheduleRoutes.js';
+import attendanceRoutes from './src/routes/attendanceRoutes.js';
 
 
 
@@ -40,6 +44,10 @@ class App {
     this.app.use('/submissions', submissionsRoutes);
     this.app.use('/grades', gradeRoutes);
     this.app.use('/messages', messageRoutes);
+    this.app.use('/guardians', guardianRoutes);
+    this.app.use('/classes', classRoutes);
+    this.app.use('/schedules', scheduleRoutes);
+    this.app.use('/attendances', attendanceRoutes);
 
   }
 }

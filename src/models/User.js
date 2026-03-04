@@ -46,7 +46,7 @@ export default class User extends Model {
         },
 
         tipo: {
-          type: Sequelize.ENUM('aluno', 'professor', 'gestor'),
+          type: Sequelize.ENUM('aluno', 'professor', 'gestor', 'encarregado'),
           allowNull: false
         },
 
