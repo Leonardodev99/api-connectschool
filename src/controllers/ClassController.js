@@ -145,6 +145,109 @@ class ClassController {
   }
 
   /**
+ * 📌 Matricular aluno na turma
+ * POST /classes/:classId/enroll
+ */
+  async enrollStudent(req, res) {
+    try {
+      const { classId } = req.params;
+      const { student_id } = req.body;
+
+      // Verifica se turma existe
+      const turma = await Class.findByPk(classId);
+      if (!turma) {
+        return res.status(404).json({ error: 'Turma não encontrada' });
+      }
+
+      // Verifica se aluno existe
+      const student = await Student.findByPk(student_id);
+      if (!student) {
+        return res.status(404).json({ error: 'Aluno não encontrado' });
+      }
+
+      // Verifica se já está matriculado
+      if (student.class_id === turma.id) {
+        return res.status(400).json({
+          error: 'Aluno já está matriculado nesta turma'
+        });
+      }
+
+      // Se já estiver em outra turma
+      if (student.class_id && student.class_id !== turma.id) {
+        return res.status(400).json({
+          error: 'Aluno já está matriculado em outra turma'
+        });
+      }
+
+      await student.update({ class_id: turma.id });
+
+      return res.json({
+        message: 'Aluno matriculado com sucesso',
+        student
+      });
+
+    } catch (error) {
+      return res.status(500).json({
+        error: error.message
+      });
+    }
+  }
+
+  /*/**
+ * 📌 Matricular aluno na turma
+ * POST /classes/:classId/enroll
+
+async enrollStudent(req, res) {
+  try {
+    const { classId } = req.params;
+    const { student_id } = req.body;
+
+    // 🔎 Verifica se turma existe
+    const turmaDestino = await Class.findByPk(classId);
+    if (!turmaDestino) {
+      return res.status(404).json({ error: 'Turma não encontrada' });
+    }
+
+    if (!turmaDestino.ativo) {
+      return res.status(400).json({
+        error: 'Não é possível matricular aluno em turma inativa'
+      });
+    }
+
+    // 🔎 Verifica se aluno existe
+    const student = await Student.findByPk(student_id);
+    if (!student) {
+      return res.status(404).json({ error: 'Aluno não encontrado' });
+    }
+
+    // 🔒 Se aluno já está vinculado a uma turma
+    if (student.class_id) {
+      const turmaAtual = await Class.findByPk(student.class_id);
+
+      // 🚨 Se turma atual está ativa → bloquear
+      if (turmaAtual && turmaAtual.ativo) {
+        return res.status(400).json({
+          error: 'Aluno já está matriculado em uma turma ativa'
+        });
+      }
+    }
+
+    // ✅ Matricular
+    await student.update({ class_id: turmaDestino.id });
+
+    return res.json({
+      message: 'Aluno matriculado com sucesso',
+      student
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message
+    });
+  }
+} */
+
+  /**
    * 📌 Desativar Turma (Soft Delete)
    * DELETE /classes/:id
    */

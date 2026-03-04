@@ -71,6 +71,10 @@ export default class Student extends Model {
             key: 'id'
           }
         },
+        foto: {
+          type: Sequelize.STRING,
+          allowNull: true
+        },
 
         ativo: {
           type: Sequelize.BOOLEAN,

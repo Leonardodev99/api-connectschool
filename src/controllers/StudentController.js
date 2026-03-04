@@ -115,6 +115,39 @@ class StudentController {
     }
   }
 
+  async uploadPhoto(req, res) {
+    try {
+      const { id } = req.params;
+
+      const student = await Student.findByPk(id);
+      if (!student) {
+        return res.status(404).json({ error: 'Aluno não encontrado' });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: 'Arquivo não enviado' });
+      }
+
+      await student.update({
+        foto: req.file.filename
+      });
+
+      /* return res.json({
+        message: 'Upload realizado com sucesso',
+        file: req.file
+      });*/
+      return res.json({
+        message: 'Upload realizado com sucesso',
+        url: `${process.env.APP_URL}/images/${req.file.filename}`
+      });
+
+    } catch (error) {
+      return res.status(400).json({
+        error: error.message
+      });
+    }
+  }
+
   /**
    * Remover aluno
    * DELETE /students/:id

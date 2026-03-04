@@ -7,3 +7,4 @@ app.listen(port, () => {
   console.log(`Escutando na porta ${port}`);
   console.log(`CRTL + Clique em http://localhost:${port}`);
 });
+

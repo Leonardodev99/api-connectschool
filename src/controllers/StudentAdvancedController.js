@@ -5,6 +5,7 @@ import Teacher from '../models/Teacher.js';
 import { Sequelize } from 'sequelize';
 import User from '../models/User.js';
 
+
 class StudentAdvancedController {
 
   // 🔹 Notas do aluno
@@ -143,6 +144,8 @@ class StudentAdvancedController {
       });
     }
   }
+
+
 }
 
 export default new StudentAdvancedController();

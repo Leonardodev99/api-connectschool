@@ -5,6 +5,9 @@ const router = new Router();
 
 router.post('/', ClassController.store);
 router.get('/', ClassController.index);
+
+router.post('/:classId/enroll', ClassController.enrollStudent);
+
 router.get('/:id', ClassController.show);
 router.put('/:id', ClassController.update);
 router.delete('/:id', ClassController.delete);
