@@ -22,6 +22,7 @@ import guardianRoutes from './src/routes/guardianRoutes.js';
 import classRoutes from './src/routes/classRoutes.js';
 import scheduleRoutes from './src/routes/scheduleRoutes.js';
 import attendanceRoutes from './src/routes/attendanceRoutes.js';
+import tokenRoutes from './src/routes/tokenRoutes.js';
 
 
 
@@ -53,6 +54,7 @@ class App {
     this.app.use('/classes', classRoutes);
     this.app.use('/schedules', scheduleRoutes);
     this.app.use('/attendances', attendanceRoutes);
+    this.app.use('/tokens', tokenRoutes);
 
   }
 }

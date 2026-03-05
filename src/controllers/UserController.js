@@ -1,10 +1,6 @@
 import User from '../models/User.js';
 
 class UserController {
-  /**
-   * Criar utilizador
-   * POST /users
-   */
   async store(req, res) {
     try {
       const { nome, email, senha, tipo } = req.body;
@@ -13,6 +9,35 @@ class UserController {
       const userExists = await User.findOne({ where: { email } });
       if (userExists) {
         return res.status(400).json({ error: 'Email já cadastrado' });
+      }
+
+      /**
+     * 🔐 REGRA DE SEGURANÇA
+     */
+      if (tipo !== 'gestor') {
+      // Precisa estar autenticado
+        if (!req.headers.authorization) {
+          return res.status(401).json({
+            error: 'Apenas gestor autenticado pode cadastrar este tipo de utilizador'
+          });
+        }
+
+        // Validar token manualmente
+        const authMiddleware = (await import('../middlewares/authMiddleware.js')).default;
+        const roleMiddleware = (await import('../middlewares/roleMiddleware.js')).default;
+
+        let autorizado = false;
+
+        await new Promise((resolve) => {
+          authMiddleware(req, res, () => {
+            roleMiddleware('gestor')(req, res, () => {
+              autorizado = true;
+              resolve();
+            });
+          });
+        });
+
+        if (!autorizado) return;
       }
 
       const user = await User.create({
@@ -29,6 +54,7 @@ class UserController {
         tipo: user.tipo,
         ativo: user.ativo
       });
+
     } catch (error) {
       return res.status(400).json({ error: error.message });
     }
@@ -51,9 +77,9 @@ class UserController {
   }
 
   /**
-   * Mostrar um utilizador
-   * GET /users/:id
-   */
+ * Mostrar um utilizador (SÓ GESTOR)
+ * GET /users/:id
+ */
   async show(req, res) {
     try {
       const { id } = req.params;
@@ -63,12 +89,42 @@ class UserController {
       });
 
       if (!user) {
-        return res.status(404).json({ error: 'Utilizador não encontrado' });
+        return res.status(404).json({
+          error: 'Utilizador não encontrado'
+        });
       }
 
       return res.json(user);
+
     } catch (error) {
-      return res.status(500).json({ error: 'Erro ao buscar utilizador' });
+      return res.status(500).json({
+        error: 'Erro ao buscar utilizador'
+      });
+    }
+  }
+
+  /**
+ * Perfil do usuário logado
+ * GET /users/me
+ */
+  async profile(req, res) {
+    try {
+      const user = await User.findByPk(req.userId, {
+        attributes: ['id', 'nome', 'email', 'tipo', 'ativo', 'created_at']
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          error: 'Utilizador não encontrado'
+        });
+      }
+
+      return res.json(user);
+
+    } catch (error) {
+      return res.status(500).json({
+        error: 'Erro ao buscar perfil'
+      });
     }
   }
 

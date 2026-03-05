@@ -48,8 +48,25 @@ class ClassController {
    */
   async index(req, res) {
     try {
+      let whereCondition = { ativo: true };
+
+      // 🔐 Se for professor, filtrar pelas suas turmas
+      if (req.user.tipo === 'professor') {
+        const teacher = await Teacher.findOne({
+          where: { user_id: req.user.id }
+        });
+
+        if (!teacher) {
+          return res.status(404).json({
+            error: 'Professor não encontrado'
+          });
+        }
+
+        whereCondition.teacher_id = teacher.id;
+      }
+
       const classes = await Class.findAll({
-        where: { ativo: true },
+        where: whereCondition,
         include: [
           {
             model: Teacher,
@@ -66,8 +83,11 @@ class ClassController {
       });
 
       return res.json(classes);
+
     } catch (error) {
-      return res.status(500).json({ error: 'Erro ao listar turmas' });
+      return res.status(500).json({
+        error: 'Erro ao listar turmas'
+      });
     }
   }
 
@@ -107,14 +127,21 @@ class ClassController {
         return res.status(404).json({ error: 'Turma não encontrada' });
       }
 
+      // 🔐 Se for professor, só pode ver sua própria turma
+      if (req.user.tipo === 'professor') {
+        if (turma.teacher.user_id !== req.user.id) {
+          return res.status(403).json({
+            error: 'Acesso negado. Esta turma não pertence a você.'
+          });
+        }
+      }
+
       return res.json(turma);
 
     } catch (error) {
-      console.error(error); // 👈 coloca isso para ver o erro real
       return res.status(500).json({ error: 'Erro ao buscar turma' });
     }
   }
-
   /**
    * 📌 Atualizar Turma
    * PUT /classes/:id

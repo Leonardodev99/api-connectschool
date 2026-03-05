@@ -10,48 +10,48 @@ class GradeController {
    */
   async store(req, res) {
     try {
-      const { submission_id, teacher_id, score, feedback } = req.body;
-      //const teacher_id = req.userId;
+      const { submission_id, score, feedback } = req.body;
 
-      // Verifica se é professor
-      const teacher = await Teacher.findByPk(teacher_id);
-      if (!teacher) {
+      // Buscar professor logado
+      const teacher = await Teacher.findOne({
+        where: { user_id: req.user.id }
+      });
+
+      if (!teacher && req.user.tipo !== 'gestor') {
         return res.status(403).json({
-          error: 'Apenas professores podem lançar notas',
+          error: 'Apenas professores ou gestores podem lançar notas'
         });
       }
 
-      // Verifica submissão
       const submission = await Submission.findByPk(submission_id);
+
       if (!submission) {
         return res.status(404).json({
-          error: 'Submissão não encontrada',
+          error: 'Submissão não encontrada'
         });
       }
 
-      // Impede nota duplicada
       const existingGrade = await Grade.findOne({
-        where: { submission_id },
+        where: { submission_id }
       });
 
       if (existingGrade) {
         return res.status(400).json({
-          error: 'Esta submissão já possui uma nota',
+          error: 'Esta submissão já possui nota'
         });
       }
 
       const grade = await Grade.create({
         submission_id,
-        teacher_id,
+        teacher_id: teacher ? teacher.id : null,
         score,
-        feedback,
+        feedback
       });
 
       return res.status(201).json(grade);
+
     } catch (error) {
-      return res.status(400).json({
-        error: error.message,
-      });
+      return res.status(400).json({ error: error.message });
     }
   }
 
@@ -62,63 +62,49 @@ class GradeController {
    */
   async index(req, res) {
     try {
-      const userId = req.userId;
-
-      const teacher = await Teacher.findByPk(userId);
-      const student = await Student.findByPk(userId);
-
-      // Professor → todas as notas
-      if (teacher) {
+    // 👨‍💼 Gestor → vê tudo
+      if (req.user.tipo === 'gestor') {
         const grades = await Grade.findAll({
-          include: [
-            {
-              model: Submission,
-              as: 'submission',
-              include: [
-                {
-                  model: Task,
-                  as: 'task',
-                },
-                {
-                  model: Student,
-                  as: 'student',
-                },
-              ],
-            },
-          ],
+          include: ['submission']
+        });
+        return res.json(grades);
+      }
+
+      // 👨‍🏫 Professor → apenas notas que lançou
+      if (req.user.tipo === 'professor') {
+        const teacher = await Teacher.findOne({
+          where: { user_id: req.user.id }
+        });
+
+        const grades = await Grade.findAll({
+          where: { teacher_id: teacher.id },
+          include: ['submission']
         });
 
         return res.json(grades);
       }
 
-      // Aluno → apenas notas dele
-      if (student) {
+      // 👨‍🎓 Aluno → apenas suas notas
+      if (req.user.tipo === 'aluno') {
+        const student = await Student.findOne({
+          where: { user_id: req.user.id }
+        });
+
         const grades = await Grade.findAll({
           include: [
             {
               model: Submission,
               as: 'submission',
-              where: { student_id: student.id },
-              include: [
-                {
-                  model: Task,
-                  as: 'task',
-                },
-              ],
-            },
-          ],
+              where: { student_id: student.id }
+            }
+          ]
         });
 
         return res.json(grades);
       }
 
-      return res.status(403).json({
-        error: 'Usuário não autorizado',
-      });
     } catch (error) {
-      return res.status(400).json({
-        error: error.message,
-      });
+      return res.status(400).json({ error: error.message });
     }
   }
 
@@ -179,29 +165,38 @@ class GradeController {
   async update(req, res) {
     try {
       const { id } = req.params;
-      const teacher_id = req.userId;
 
-      const teacher = await Teacher.findByPk(teacher_id);
-      if (!teacher) {
-        return res.status(403).json({
-          error: 'Apenas professores podem alterar notas',
+      const grade = await Grade.findByPk(id);
+
+      if (!grade) {
+        return res.status(404).json({
+          error: 'Nota não encontrada'
         });
       }
 
-      const grade = await Grade.findByPk(id);
-      if (!grade) {
-        return res.status(404).json({
-          error: 'Nota não encontrada',
+      // Gestor pode tudo
+      if (req.user.tipo === 'gestor') {
+        await grade.update(req.body);
+        return res.json(grade);
+      }
+
+      // Professor só pode alterar a própria nota
+      const teacher = await Teacher.findOne({
+        where: { user_id: req.user.id }
+      });
+
+      if (!teacher || grade.teacher_id !== teacher.id) {
+        return res.status(403).json({
+          error: 'Você não pode alterar esta nota'
         });
       }
 
       await grade.update(req.body);
 
       return res.json(grade);
+
     } catch (error) {
-      return res.status(400).json({
-        error: error.message,
-      });
+      return res.status(400).json({ error: error.message });
     }
   }
 
@@ -210,22 +205,34 @@ class GradeController {
    */
   async delete(req, res) {
     try {
-      const { id } = req.params;
-      const teacher_id = req.userId;
 
-      const teacher = await Teacher.findByPk(teacher_id);
-      if (!teacher) {
-        return res.status(403).json({
-          error: 'Apenas professores podem remover notas',
-        });
-      }
+      const { id } = req.params;
 
       const grade = await Grade.findByPk(id);
+
       if (!grade) {
         return res.status(404).json({
-          error: 'Nota não encontrada',
+          error: 'Nota não encontrada'
         });
       }
+
+      // Gestor pode tudo
+      if (req.user.tipo === 'gestor') {
+        await grade.update(req.body);
+        return res.json(grade);
+      }
+
+      // Professor só pode alterar a própria nota
+      const teacher = await Teacher.findOne({
+        where: { user_id: req.user.id }
+      });
+
+      if (!teacher || grade.teacher_id !== teacher.id) {
+        return res.status(403).json({
+          error: 'Você não pode eliminar esta nota'
+        });
+      }
+
 
       await grade.destroy();
 

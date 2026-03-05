@@ -1,6 +1,7 @@
 import Guardian from '../models/Guardian';
 import User from '../models/User';
 import Student from '../models/Student';
+import sequelize from '../database'; // sua conexão
 
 class GuardianController {
   // 📌 Listar todos
@@ -62,7 +63,17 @@ class GuardianController {
         return res.status(404).json({ error: 'Encarregado não encontrado' });
       }
 
+      // 🔐 Se for encarregado, só pode ver o próprio perfil
+      if (req.user.tipo === 'encarregado') {
+        if (guardian.user_id !== req.user.id) {
+          return res.status(403).json({
+            error: 'Você só pode visualizar o seu próprio perfil'
+          });
+        }
+      }
+
       return res.json(guardian);
+
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }
@@ -71,19 +82,39 @@ class GuardianController {
   // 📌 Criar
   // 📌 Criar Guardian e associar estudantes
   async store(req, res) {
+    const transaction = await sequelize.transaction();
+
     try {
-      const { user_id, telefone, students } = req.body;
+      const { nome, email, senha, telefone, students } = req.body;
 
-      // Cria o Guardian
-      const guardian = await Guardian.create({ user_id, telefone });
+      // 1️⃣ Criar usuário já como encarregado
+      const user = await User.create(
+        {
+          nome,
+          email,
+          senha,
+          tipo: 'encarregado'
+        },
+        { transaction }
+      );
 
-      // Associa estudantes se forem fornecidos
+      // 2️⃣ Criar guardian vinculado ao user
+      const guardian = await Guardian.create(
+        {
+          user_id: user.id,
+          telefone
+        },
+        { transaction }
+      );
+
+      // 3️⃣ Associar alunos
       if (students && students.length > 0) {
-        await guardian.setStudents(students); // students = array de IDs
+        await guardian.setStudents(students, { transaction });
       }
 
-      // Recarrega Guardian com estudantes associados
-      const guardianWithStudents = await Guardian.findByPk(guardian.id, {
+      await transaction.commit();
+
+      const guardianCreated = await Guardian.findByPk(guardian.id, {
         include: [
           {
             model: User,
@@ -93,20 +124,15 @@ class GuardianController {
           {
             model: Student,
             as: 'students',
-            attributes: ['id', 'matricula'],
-            include: [
-              {
-                model: User,
-                as: 'user',
-                attributes: ['id', 'nome', 'email']
-              }
-            ]
+            attributes: ['id', 'matricula']
           }
         ]
       });
 
-      return res.status(201).json(guardianWithStudents);
+      return res.status(201).json(guardianCreated);
+
     } catch (error) {
+      await transaction.rollback();
       return res.status(400).json({ error: error.message });
     }
   }
@@ -124,15 +150,21 @@ class GuardianController {
         return res.status(404).json({ error: 'Encarregado não encontrado' });
       }
 
-      // Atualiza telefone e ativo
-      await guardian.update({ telefone, ativo });
-
-      // Atualiza associação de estudantes se fornecida
-      if (students) {
-        await guardian.setStudents(students); // students = array de IDs
+      // 🔐 Se for encarregado, só pode atualizar o próprio perfil
+      if (req.user.tipo === 'encarregado') {
+        if (guardian.user_id !== req.user.id) {
+          return res.status(403).json({
+            error: 'Você só pode atualizar o seu próprio perfil'
+          });
+        }
       }
 
-      // Recarrega Guardian com estudantes
+      await guardian.update({ telefone, ativo });
+
+      if (students && req.user.tipo === 'gestor') {
+        await guardian.setStudents(students);
+      }
+
       const guardianWithStudents = await Guardian.findByPk(guardian.id, {
         include: [
           { model: User, as: 'user', attributes: ['id', 'nome', 'email', 'tipo'] },
@@ -141,17 +173,14 @@ class GuardianController {
             as: 'students',
             attributes: ['id', 'matricula'],
             include: [
-              {
-                model: User,
-                as: 'user',
-                attributes: ['id', 'nome', 'email']
-              }
+              { model: User, as: 'user', attributes: ['id', 'nome', 'email'] }
             ]
           }
         ]
       });
 
       return res.json(guardianWithStudents);
+
     } catch (error) {
       return res.status(400).json({ error: error.message });
     }

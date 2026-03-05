@@ -2,21 +2,44 @@ import { Router } from 'express';
 import StudentController from '../controllers/StudentController';
 import StudentAdvancedController from '../controllers/StudentAdvancedController';
 import upload from '../middlewares/upload';
+import authMiddleware from '../middlewares/authMiddleware.js';
+import roleMiddleware from '../middlewares/roleMiddleware.js';
 
 const router = new Router();
 
-router.post('/', StudentController.store);
-router.post('/:id/photo', upload.single('file'), StudentController.uploadPhoto);
+// 🔒 Todas as rotas exigem autenticação
+router.use(authMiddleware);
 
-router.get('/', StudentController.index);
+// 📌 Rotas restritas a gestores
+router.post('/', roleMiddleware('gestor'), StudentController.store);
+router.put('/:id', roleMiddleware('gestor'), StudentController.update);
+router.delete('/:id', roleMiddleware('gestor'), StudentController.delete);
+router.post('/:id/photo', roleMiddleware('gestor'), upload.single('file'), StudentController.uploadPhoto);
 
-// Aluno
-router.get('/:studentId/grades', StudentAdvancedController.grades);
-router.get('/:studentId/report', StudentAdvancedController.report);
-router.get('/:studentId/submissions', StudentAdvancedController.submissions);
+// 📌 Rotas de listagem e consulta → gestor ou professor
+router.get('/', roleMiddleware('gestor', 'professor'), StudentController.index);
+router.get('/:id', roleMiddleware('gestor', 'professor'), StudentController.show);
 
-router.get('/:id', StudentController.show);
-router.put('/:id', StudentController.update);
-router.delete('/:id', StudentController.delete);
+// 🔹 Rotas de aluno (cada aluno acessa apenas os próprios dados)
+router.get('/:studentId/grades', roleMiddleware('aluno', 'professor', 'gestor'), (req, res, next) => {
+  if (req.userRole === 'aluno' && req.userId != req.params.studentId) {
+    return res.status(403).json({ error: 'Acesso negado' });
+  }
+  next();
+}, StudentAdvancedController.grades);
+
+router.get('/:studentId/report', roleMiddleware('aluno', 'professor', 'gestor'), (req, res, next) => {
+  if (req.userRole === 'aluno' && req.userId != req.params.studentId) {
+    return res.status(403).json({ error: 'Acesso negado' });
+  }
+  next();
+}, StudentAdvancedController.report);
+
+router.get('/:studentId/submissions', roleMiddleware('aluno', 'professor', 'gestor'), (req, res, next) => {
+  if (req.userRole === 'aluno' && req.userId != req.params.studentId) {
+    return res.status(403).json({ error: 'Acesso negado' });
+  }
+  next();
+}, StudentAdvancedController.submissions);
 
 export default router;

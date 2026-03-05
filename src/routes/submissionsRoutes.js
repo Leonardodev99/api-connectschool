@@ -1,16 +1,57 @@
 import { Router } from 'express';
 import SubmissionController from '../controllers/SubmissionController.js';
-import SubmissionAdvancedController from '../controllers/SubmissionAdvancedController';
+import SubmissionAdvancedController from '../controllers/SubmissionAdvancedController.js';
+import authMiddleware from '../middlewares/authMiddleware.js';
+import roleMiddleware from '../middlewares/roleMiddleware.js';
 
 const router = new Router();
 
-router.post('/', SubmissionController.store);
-router.get('/', SubmissionController.index);
-// Submissões
-router.get('/pending', SubmissionAdvancedController.pending);
+// 📌 Criar submissão → apenas aluno
+router.post(
+  '/',
+  authMiddleware,
+  roleMiddleware('aluno'),
+  SubmissionController.store
+);
 
-router.get('/:id', SubmissionController.show);
-router.put('/:id', SubmissionController.update);
-router.delete('/:id', SubmissionController.delete);
+// 📌 Listar submissões → aluno, professor, gestor
+router.get(
+  '/',
+  authMiddleware,
+  roleMiddleware('aluno', 'professor', 'gestor'),
+  SubmissionController.index
+);
+
+// 🔹 Submissões pendentes → professor ou gestor
+router.get(
+  '/pending',
+  authMiddleware,
+  roleMiddleware('professor', 'gestor'),
+  SubmissionAdvancedController.pending
+);
+
+// 📌 Buscar submissão → aluno, professor, gestor
+router.get(
+  '/:id',
+  authMiddleware,
+  roleMiddleware('aluno', 'professor', 'gestor'),
+  SubmissionController.show
+);
+
+// 📌 Atualizar submissão → professor ou gestor
+router.put(
+  '/:id',
+  authMiddleware,
+  roleMiddleware('professor', 'gestor'),
+  SubmissionController.update
+);
+
+// 📌 Deletar submissão → apenas gestor
+router.delete(
+  '/:id',
+  authMiddleware,
+  roleMiddleware('gestor'),
+  SubmissionController.delete
+);
 
 export default router;
